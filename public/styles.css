@@ -1,0 +1,128 @@
+:root {
+  color-scheme: light;
+  --bg: #f7f8f4;
+  --paper: #fffdf7;
+  --ink: #20231f;
+  --muted: #667064;
+  --line: #d8ddcf;
+  --accent: #2f7d57;
+  --accent-soft: #e3f0e7;
+  --shadow: 0 18px 50px rgba(46, 58, 44, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+.app {
+  width: min(980px, calc(100vw - 32px));
+  min-height: calc(100vh - 48px);
+  margin: 24px auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 14px;
+}
+
+.topbar,
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.status {
+  min-width: 82px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 14px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.status.offline {
+  background: #fff1ea;
+  color: #b14d25;
+}
+
+.editor-wrap {
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 460px;
+  padding: 28px;
+  resize: none;
+  border: 0;
+  outline: none;
+  background:
+    linear-gradient(transparent 31px, rgba(47, 125, 87, 0.12) 32px),
+    var(--paper);
+  background-size: 100% 32px;
+  color: var(--ink);
+  font: 18px/32px ui-serif, Georgia, "Times New Roman", "Songti SC", serif;
+}
+
+textarea::placeholder {
+  color: #a3a99d;
+}
+
+.footer {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .app {
+    width: min(100vw - 20px, 980px);
+    min-height: calc(100vh - 20px);
+    margin: 10px auto;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+
+  textarea {
+    min-height: 520px;
+    padding: 20px;
+    font-size: 17px;
+  }
+}

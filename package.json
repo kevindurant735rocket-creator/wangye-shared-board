@@ -1,0 +1,33 @@
+{
+  "name": "wangye-shared-board",
+  "version": "1.1.0",
+  "description": "共享写字板 - 极简协同笔记，Vite 现代化构建，响应式与 SEO 就绪",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port $npm_package_config_previewPort",
+    "start": "node server.js",
+    "serve:dist": "NODE_ENV=production node server.js",
+    "lint": "echo \"(add eslint when needed) lint:src\"",
+    "format": "prettier --write \"src/**/*.{js,css}\" \"*.{js,json}\" 2>/dev/null || echo \"prettier not installed\""
+  },
+  "config": {
+    "previewPort": 4173
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vite": "^6.0.0"
+  },
+  "keywords": [
+    "vite",
+    "board",
+    "collaboration",
+    "seo",
+    "responsive"
+  ],
+  "license": "MIT"
+}

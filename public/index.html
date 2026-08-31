@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>共享写字板 - 极简协同笔记 | 实时保存</title>
+    <meta name="description" content="共享写字板是一款极简协同笔记，实时自动保存、响应式、离线友好。" />
+    <meta name="keywords" content="共享写字板,协同笔记,实时保存" />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#2f7d57" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="共享写字板 - 极简协同笔记" />
+    <meta property="og:description" content="把想法写在这里，自动保存、多端同步。" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <h1>共享写字板</h1>
+          <p>把想法和有趣的事情写在这里。</p>
+        </div>
+        <div class="status" id="status">连接中</div>
+      </header>
+
+      <section class="editor-wrap">
+        <textarea
+          id="board"
+          maxlength="20000"
+          spellcheck="false"
+          placeholder="今天想记录点什么？"
+        ></textarea>
+      </section>
+
+      <footer class="footer">
+        <span id="savedTime">尚未保存</span>
+        <span id="count">0 字</span>
+      </footer>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

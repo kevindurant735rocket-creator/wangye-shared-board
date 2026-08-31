@@ -1,0 +1,18 @@
+{
+  "name": "共享写字板",
+  "short_name": "写字板",
+  "description": "极简协同笔记，实时保存，响应式与离线友好",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f8f4",
+  "theme_color": "#2f7d57",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

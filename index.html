@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>共享写字板 - 极简协同笔记 | 实时保存 随时记录</title>
+    <meta
+      name="description"
+      content="共享写字板是一款极简的协同笔记工具，支持实时自动保存、多端响应式、防抖写入与离线提示，让想法随时记录、随时共享。"
+    />
+    <meta name="keywords" content="共享写字板,协同笔记,实时保存,响应式,极简写作" />
+    <meta name="author" content="共享写字板" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <meta name="theme-color" content="#2f7d57" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="canonical" href="http://localhost:3000/" />
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:title" content="共享写字板 - 极简协同笔记" />
+    <meta
+      property="og:description"
+      content="把想法和有趣的事情写在这里，自动保存、多端同步、离线友好。"
+    />
+    <meta property="og:url" content="http://localhost:3000/" />
+    <meta property="og:image" content="/og-cover.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="共享写字板 - 极简协同笔记" />
+    <meta name="twitter:description" content="极简、快速、响应式的共享写字板。" />
+    <meta name="twitter:image" content="/og-cover.png" />
+
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="/" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <!-- SEO: 结构化数据 -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "共享写字板",
+        "description": "极简协同笔记，实时保存，响应式设计。",
+        "applicationCategory": "Productivity",
+        "operatingSystem": "Any",
+        "inLanguage": "zh-CN",
+        "offers": { "@type": "Offer", "price": "0" }
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#board">跳到编辑区</a>
+    <main class="app" role="main">
+      <header class="topbar">
+        <div class="brand">
+          <h1>共享写字板</h1>
+          <p>把想法和有趣的事情写在这里。自动保存 · 多端同步 · 离线提示</p>
+        </div>
+        <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">
+          连接中
+        </div>
+      </header>
+
+      <section class="editor-wrap" aria-labelledby="board-label">
+        <label id="board-label" class="sr-only" for="board">共享笔记内容</label>
+        <textarea
+          id="board"
+          maxlength="20000"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder="今天想记录点什么？支持 20000 字以内，自动保存。"
+          aria-describedby="board-help"
+        ></textarea>
+        <div id="board-help" class="sr-only">输入会自动保存，离线时会提示并在恢复后重试</div>
+      </section>
+
+      <footer class="footer" aria-label="保存状态">
+        <span id="savedTime">尚未保存</span>
+        <span id="count" aria-live="polite">0 字</span>
+      </footer>
+    </main>
+
+    <noscript>
+      <div class="noscript">请启用 JavaScript 以使用自动保存与实时同步功能。</div>
+    </noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
