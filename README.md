@@ -11,7 +11,7 @@
   npm run build    # 产出 dist/
   npm run preview  # 预览 dist
   npm start        # 生产服务 node server.js（优先托管 dist，缺失则回退 public）
-  npm test         # 四套件：auth 12 + session-persistence 6 + refactor 16 + api.integration 15
+  npm test         # 四套件：auth 12 + session-persistence 6 + refactor 33 + api.integration 21
   npm run bench    # HTTP 基准（自起 server 于 :3456，N=200 C=20）
   ```
 - **Node >=18**，`package.json` 声明 `engines` 与 `type: commonjs` 保持兼容。
@@ -26,7 +26,9 @@
 
 - 安全头：`X-Content-Type-Options / X-Frame-Options / Referrer-Policy / HSTS / CSP / Permissions-Policy`（轻量 helmet）
 - CORS：`CORS_ORIGIN` 环境变量控制，默认 `*`，处理 `OPTIONS` 预检
-- 限流：内存**固定窗口**（窗口边界处理论可 2× 突发）`GET 120/分钟 / POST 30/分钟`，超限 `429`
+- 限流：内存**固定窗口**（窗口边界处理论可 2× 突发）`default GET 300/分钟 · 非 GET/POST 方法计 WRITE 30/分钟；auth 桶 10/分钟`，超限 `429`（`BENCHMARK_MODE=1` 跳过）
+- 鉴权面：收藏 API（`/api/bookmarks*`，除 `GET /api/share/:token` 公开读）与 `/api/metrics` 均需登录会话；`GET /api/notes` 为公开读（产品语义，白板访客可看）
+- IP 口径：日志/限流取 socket 地址，`X-Forwarded-For` 仅在 `TRUST_PROXY=1` 时采纳（防伪造）
 - 参数校验：`POST /api/notes` 校验 JSON 合法性、`text` 类型与 20000 长度，`413` 超大体
 - 原子写入：临时文件 + `rename`，避免并发截断
 - 体积限制：`128KB` 请求体上限
