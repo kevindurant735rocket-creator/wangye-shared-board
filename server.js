@@ -175,8 +175,9 @@ function serveStaticInternal(req, res, urlPath) {
 
     const ext = path.extname(filePath).toLowerCase();
     const mime = mimeTypes[ext] || 'application/octet-stream';
-    const isImmutable =
-      filePath.includes('/assets/') || ext === '.js' || ext === '.css';
+    // 红队 R2-F5：immutable 只给带内容指纹的 /assets/ 文件——顶层 app.js/styles.css
+    // 文件名固定，一年 immutable 会让前端修复部署后浏览器最长一年不拉新
+    const isImmutable = filePath.includes('/assets/');
     const cacheControl = isImmutable
       ? 'public, max-age=31536000, immutable'
       : 'public, max-age=600';
@@ -202,7 +203,15 @@ function serveStaticInternal(req, res, urlPath) {
 }
 
 function serveStatic(req, res) {
-  const urlPath = decodeURIComponent(req.url.split('?')[0]);
+  // 畸形编码（如 /%）decodeURIComponent 会抛 URIError——按 400 拒绝，不让请求打死进程
+  let urlPath;
+  try {
+    urlPath = decodeURIComponent(req.url.split('?')[0]);
+  } catch {
+    setSecurityHeaders(res);
+    setCorsHeaders(req, res);
+    return sendJson(res, 400, { error: 'Bad Request: malformed URL encoding' });
+  }
 
   if (urlPath === '/health' || urlPath === '/api/health') {
     setSecurityHeaders(res);
@@ -216,8 +225,10 @@ function serveStatic(req, res) {
     });
   }
 
-  // 新增 /api/metrics（Batch C：可观测性）
+  // 新增 /api/metrics（Batch C：可观测性）——红队 R2-F4：观测面也须鉴权，
+  // 否则路由基数、QPS、错误率对任意访客可见
   if (urlPath === '/api/metrics' && req.method === 'GET') {
+    if (!requireAuth(req, res)) return;
     setSecurityHeaders(res);
     setCorsHeaders(req, res);
     return sendJson(res, 200, metrics.snapshot());
@@ -337,6 +348,11 @@ try {
   bookmarkRoutes = buildRoutes(bookmarkStoreInstance).map((r) => ({
     ...r,
     handler: async (req, res, params, helpers) => {
+      // 收藏 API 鉴权（红队 R2-F2）：整组路由此前无会话校验，可被任意访客增删改。
+      // 唯一豁免：GET /api/share/:token——凭不可预测 token 读分享内容属公开语义。
+      const isPublicShareRead =
+        req.method === 'GET' && r.pattern === '/api/share/:token';
+      if (!isPublicShareRead && !requireAuth(req, res)) return;
       setSecurityHeaders(res);
       setCorsHeaders(req, res);
       return r.handler(req, res, params, helpers);
@@ -500,6 +516,14 @@ function shutdown(signal) {
 }
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+// 兜底：未捕获异常/拒绝只记录不灭进程。本服务由裸 node 启动（无进程管理器自动重启），
+// 崩溃即下线到底；日志保留现场，配合外部存活监控处理。
+process.on('uncaughtException', (err) => {
+  log('error', 'uncaughtException', { error: String((err && err.stack) || err) });
+});
+process.on('unhandledRejection', (err) => {
+  log('error', 'unhandledRejection', { error: String((err && err.stack) || err) });
+});
 
 // 导出供测试：避免 server 真正 listen 两次
 module.exports = { httpUtils, rateLimit, notesStore, metrics, buildRouter, apiRouter, LEGACY_MODE, bookmarkStore: bookmarkStoreInstance, bookmarkRoutes };
