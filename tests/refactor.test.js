@@ -23,6 +23,7 @@ const httpUtils = require('../lib/http-utils');
 const rateLimit = require('../lib/rate-limit');
 const notesStore = require('../lib/notes-store');
 const metrics = require('../lib/metrics');
+const auth = require('../lib/auth');
 const { buildRouter } = require('../lib/route-table');
 
 let passed = 0, failed = 0;
@@ -102,8 +103,24 @@ async function run() {
     const fakeReq = { method: 'GET', socket: { remoteAddress: '1.1.1.1' }, headers: {} };
     assert.strictEqual(rateLimit.isRateLimited(fakeReq, 'default'), false);
   });
-  await test('RATE_MAX_GET 常量保持 120', () => {
-    assert.strictEqual(rateLimit.RATE_MAX_GET, 120);
+  await test('RATE_MAX_GET 提升至 300（前端 1s 轮询×2 标签页已贴 120 线）', () => {
+    assert.strictEqual(rateLimit.RATE_MAX_GET, 300);
+  });
+  await test('PATCH/DELETE 计入 WRITE 桶并触发限流（旧实现直通）', () => {
+    const fakeReq = (method, ip) => ({ method, socket: { remoteAddress: ip }, headers: {} });
+    for (let i = 0; i < 30; i++) {
+      assert.strictEqual(rateLimit.isRateLimited(fakeReq('PATCH', '8.8.4.4'), 'default'), false);
+    }
+    assert.strictEqual(rateLimit.isRateLimited(fakeReq('PATCH', '8.8.4.4'), 'default'), true, '第 31 次 PATCH 应限流');
+    assert.strictEqual(rateLimit.isRateLimited(fakeReq('GET', '8.8.4.4'), 'default'), false, 'WRITE 超限不应连坐 GET');
+  });
+  await test('auth/default 两桶 GET 计数独立（旧实现共用计数互相污染）', () => {
+    const fakeReq = (method, ip) => ({ method, socket: { remoteAddress: ip }, headers: {} });
+    for (let i = 0; i < 120; i++) {
+      rateLimit.isRateLimited(fakeReq('GET', '9.9.9.9'), 'default');
+    }
+    assert.strictEqual(rateLimit.isRateLimited(fakeReq('GET', '9.9.9.9'), 'auth'), false, 'default 打满后 auth 桶首请求不应 429');
+    assert.strictEqual(rateLimit.isRateLimited(fakeReq('GET', '5.5.5.5'), 'auth'), false, '干净 IP auth 桶不受影响');
   });
 
   console.log('\n[notes-store]');
@@ -269,6 +286,98 @@ async function run() {
     return httpUtils.collectBody(fakeReq, 100).then((body) => {
       assert.strictEqual(body.length, 50);
     });
+  });
+
+  console.log('\n[auth 回归（红队 R2）]');
+  await test('AUTH_USERS 密码含冒号不截断（split→indexOf 修复）', () => {
+    auth._clear();
+    auth.loadFromEnv('bob:pa:ss:word');
+    assert.ok(auth.login('bob', 'pa:ss:word'), '完整密码应通过');
+    assert.strictEqual(auth.login('bob', 'pa'), null, '被截断的旧密码不应通过');
+  });
+  await test('sweepExpired 清扫过期会话', () => {
+    auth._clear();
+    auth.loadUsers([['sweeptester', 'pw1234']]);
+    const uid = auth.login('sweeptester', 'pw1234');
+    const tok = auth.startSession(uid);
+    auth._sessions.get(tok).expiresAt = Date.now() - 1000;
+    const removed = auth.sweepExpired();
+    assert.strictEqual(removed, 1, '应清掉 1 条过期会话');
+    assert.strictEqual(auth.sessionCount(), 0);
+    assert.strictEqual(auth.verifySession(tok), null, '清扫后旧 token 必须失效');
+  });
+  await test('_persistSessions 失败不残留 .tmp.*', () => {
+    auth._clear();
+    auth.loadUsers([['tmpfail', 'pw1234']]);
+    const uid = auth.login('tmpfail', 'pw1234');
+    auth.startSession(uid);
+    const realRename = fs.renameSync;
+    fs.renameSync = () => { throw new Error('simulated ENOSPC'); };
+    try {
+      auth._persistSessions(); // 失败被静默吞掉是设计行为，但不能留 tmp
+    } finally {
+      fs.renameSync = realRename;
+    }
+    const dataDir = path.resolve(__dirname, '..', 'data');
+    const leftovers = fs.existsSync(dataDir)
+      ? fs.readdirSync(dataDir).filter((f) => f.startsWith('sessions.json.tmp.'))
+      : [];
+    assert.strictEqual(leftovers.length, 0, '不应残留 sessions.json.tmp.*: ' + leftovers.join(','));
+  });
+
+  console.log('\n[notes-store 回归 2（红队 R2）]');
+  await test('write 失败（rename 抛错）清理 tmp 残留', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-tmpfail-'));
+    const realRename = fs.renameSync;
+    fs.renameSync = () => { throw new Error('simulated ENOSPC'); };
+    let threw = false;
+    try {
+      notesStore.write(tmpDir, 'boom');
+    } catch (e) {
+      threw = true;
+    } finally {
+      fs.renameSync = realRename;
+    }
+    assert.ok(threw, '写失败应向上抛出');
+    const leftovers = fs.readdirSync(tmpDir, { recursive: true }).filter((f) => f.includes('.tmp.'));
+    assert.strictEqual(leftovers.length, 0, '不应残留 .tmp.* 文件: ' + leftovers.join(','));
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  console.log('\n[metrics/http-utils 回归（红队 R2）]');
+  await test('routeKeyOf 未知路径归并 {static} 防 404 探测撑爆内存', () => {
+    assert.strictEqual(metrics.routeKeyOf('GET', '/probe-404-xyz'), 'GET {static}');
+    assert.strictEqual(metrics.routeKeyOf('GET', '/a/b/c/d'), 'GET {static}');
+  });
+  await test('routeKeyOf 收藏/分享动态段归并，import 字面路由保留', () => {
+    assert.strictEqual(metrics.routeKeyOf('POST', '/api/bookmarks/abc123'), 'POST /api/bookmarks/{id}');
+    assert.strictEqual(metrics.routeKeyOf('POST', '/api/bookmarks/import'), 'POST /api/bookmarks/import');
+    assert.strictEqual(metrics.routeKeyOf('GET', '/api/share/tok-9x'), 'GET /api/share/{token}');
+    assert.strictEqual(metrics.routeKeyOf('DELETE', '/api/bookmarks/abc/share'), 'DELETE /api/bookmarks/{id}/share');
+  });
+  await test('record 超过 500 路由落入 {overflow} 护栏', () => {
+    metrics.reset();
+    for (let i = 0; i < 520; i++) metrics.record('GET', '/api/probe-' + i, 404, 1);
+    const snap = metrics.snapshot();
+    assert.ok(snap.routes['{overflow}'], '超上限应落入 {overflow}');
+    assert.ok(snap.routes['{overflow}'].count >= 20, '溢出计数应正确');
+    assert.ok(Object.keys(snap.routes).length <= 501, '路由数应被封顶');
+  });
+  await test('CSP script-src 收紧为仅 self（无 unsafe-inline）', () => {
+    const scriptDir = httpUtils.CSP_VALUE.split('; ').find((d) => d.startsWith('script-src'));
+    assert.ok(scriptDir, '应存在 script-src 指令');
+    assert.ok(scriptDir.includes("'self'"));
+    assert.ok(!scriptDir.includes('unsafe-inline'), 'script-src 不应放行内联脚本: ' + scriptDir);
+  });
+  await test('getClientIp 默认不信 x-forwarded-for（可伪造）', () => {
+    const fakeReq = { headers: { 'x-forwarded-for': '6.6.6.6' }, socket: { remoteAddress: '127.0.0.1' } };
+    assert.strictEqual(httpUtils.getClientIp(fakeReq), '127.0.0.1', '默认应取 socket 地址');
+    process.env.TRUST_PROXY = '1';
+    try {
+      assert.strictEqual(httpUtils.getClientIp(fakeReq), '6.6.6.6', 'TRUST_PROXY=1 时才采纳 XFF');
+    } finally {
+      delete process.env.TRUST_PROXY;
+    }
   });
 
   console.log('\n=== 结果: ' + passed + ' passed, ' + failed + ' failed ===');

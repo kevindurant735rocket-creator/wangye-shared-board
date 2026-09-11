@@ -61,6 +61,18 @@ function extractCookieSet(res, name) {
   return null;
 }
 
+// 走真实 captcha→login 流程换取会话 cookie（红队 R2 回归用例复用）
+async function loginAndGetCookie() {
+  const captchaR = await httpReq('GET', '/api/auth/captcha');
+  const token = captchaR.headers['x-token'] || captchaR.headers['x-captcha-token'];
+  const code = extractCaptchaCode(captchaR.body);
+  const r = await httpReq('POST', '/api/auth/login', {
+    username: 'demo', password: 'demo1234', captchaToken: token, captchaCode: code,
+  });
+  if (r.status !== 200) return null;
+  return extractCookieSet(r, 'sid');
+}
+
 let passed = 0;
 let failed = 0;
 const failures = [];
@@ -233,6 +245,54 @@ async function runTests() {
     const r = await httpReq('OPTIONS', '/api/auth/login');
     assert.strictEqual(r.status, 204);
     assert.ok(r.headers['access-control-allow-origin'], 'missing CORS origin');
+  });
+
+  console.log('\n--- 红队 R2 回归 ---');
+
+  await test('畸形编码 URL /% 返回 400 且进程存活', async () => {
+    const r = await httpReq('GET', '/%');
+    assert.strictEqual(r.status, 400, '畸形编码应 400 而非崩掉整个进程');
+    const h = await httpReq('GET', '/health');
+    assert.strictEqual(h.status, 200, '攻击请求后服务必须仍存活');
+  });
+
+  await test('收藏 API 无 cookie 返回 401（GET/POST 双探）', async () => {
+    const g = await httpReq('GET', '/api/bookmarks');
+    assert.strictEqual(g.status, 401, '收藏列表必须鉴权');
+    const p = await httpReq('POST', '/api/bookmarks', { title: 'x', url: 'https://example.com/x' });
+    assert.strictEqual(p.status, 401, '收藏写入必须鉴权');
+  });
+
+  await test('收藏 API 携带有效 cookie 可用（200）', async () => {
+    const cookie = await loginAndGetCookie();
+    assert.ok(cookie, '登录应拿到 cookie');
+    const g = await httpReq('GET', '/api/bookmarks', null, cookie);
+    assert.strictEqual(g.status, 200, '带 cookie 的收藏读应成功');
+    const d = JSON.parse(g.body);
+    assert.strictEqual(d.ok, true);
+  });
+
+  await test('GET /api/share/:token 公开读不被鉴权拦截', async () => {
+    const r = await httpReq('GET', '/api/share/not-exist-token');
+    assert.notStrictEqual(r.status, 401, '分享读路由凭 token 语义应公开');
+    assert.strictEqual(r.status, 404, '不存在的 token 应 404');
+  });
+
+  await test('GET /api/metrics 无 cookie 401 / 有 cookie 200', async () => {
+    const no = await httpReq('GET', '/api/metrics');
+    assert.strictEqual(no.status, 401, '观测面必须鉴权');
+    const cookie = await loginAndGetCookie();
+    const yes = await httpReq('GET', '/api/metrics', null, cookie);
+    assert.strictEqual(yes.status, 200);
+    assert.strictEqual(JSON.parse(yes.body).ok, true);
+  });
+
+  await test('顶层 app.js 缓存不再 immutable', async () => {
+    const r = await httpReq('GET', '/app.js');
+    assert.strictEqual(r.status, 200);
+    const cc = r.headers['cache-control'] || '';
+    assert.ok(cc.includes('max-age=600'), '顶层脚本应短缓存，实际: ' + cc);
+    assert.ok(!cc.includes('immutable'), '无指纹文件不应 immutable，实际: ' + cc);
   });
 
   console.log('\n--- Rate Limiting ---');
