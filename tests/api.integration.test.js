@@ -104,7 +104,8 @@ async function runTests() {
     const d = JSON.parse(r.body);
     assert.strictEqual(d.ok, true);
     assert.ok(typeof d.uptime === 'number');
-    assert.strictEqual(d.version, '1.3.0');
+    // 版本单一真源 = package.json（部署 R3）
+    assert.strictEqual(d.version, require('../package.json').version);
   });
 
   console.log('\n--- Captcha API ---');

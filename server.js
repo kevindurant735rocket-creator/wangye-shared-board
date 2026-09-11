@@ -30,6 +30,8 @@ const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DIST_DIR = path.join(ROOT, 'dist');
 const LOGIN_PAGE = path.join(PUBLIC_DIR, 'login.html');
+// 版本单一真源 = package.json（部署 R3：/health 与启动日志此前各硬编码一份，已两度漂移）
+const VERSION = require('./package.json').version;
 
 const PORT = Number(process.env.PORT) || 3000;
 const LEGACY_MODE = process.env.LEGACY_MODE === '1';
@@ -219,7 +221,7 @@ function serveStatic(req, res) {
     return sendJson(res, 200, {
       ok: true,
       uptime: process.uptime(),
-      version: '1.3.0',
+      version: VERSION,
       staticRoot: path.basename(getStaticRoot()),
       authUsers: auth.userCount(),
     });
@@ -338,10 +340,12 @@ function handleMe(req, res) {
 let bookmarkRoutes = [];
 let bookmarkStoreInstance = null;
 try {
+  // 部署 R3：收藏后端已收编进本仓 src/core/——旧 require('../src/core/…') 指向
+  // 仓库外，独立 checkout/容器里会静默失去整组收藏 API（catch 后仅 warn）
   // eslint-disable-next-line global-require
-  const { createStore } = require('../src/core/bookmark-store');
+  const { createStore } = require('./src/core/bookmark-store');
   // eslint-disable-next-line global-require
-  const { buildRoutes } = require('../src/core/bookmark-api');
+  const { buildRoutes } = require('./src/core/bookmark-api');
   bookmarkStoreInstance = createStore({
     persistPath: process.env.BOOKMARK_DATA || path.join(ROOT, 'data', 'bookmarks.json'),
   });
@@ -499,7 +503,7 @@ server.listen(PORT, '0.0.0.0', () => {
     staticRoot: path.basename(getStaticRoot()),
     users: auth.userCount(),
     legacyMode: LEGACY_MODE,
-    version: '1.3.0-refactor',
+    version: VERSION,
   });
   console.log(
     `Shared board running at http://localhost:${PORT} (static: ${getStaticRoot()}) mode=${LEGACY_MODE ? 'legacy' : 'refactor'}`
