@@ -1,0 +1,28 @@
+[Unit]
+Description=Whiteboard shared board (Node.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 部署时按需调整以下三项；代码放 /opt/whiteboard（git clone 本仓即可，已自包含）
+User=www-data
+WorkingDirectory=/opt/whiteboard
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# 生产必设：覆盖默认 demo 账号（不设则用 demo:demo1234 演示账号）
+# Environment=AUTH_USERS=admin:CHANGE_ME_STRONG
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=3
+
+# 基本加固（systemd沙箱）
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/whiteboard/data
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

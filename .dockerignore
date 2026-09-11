@@ -1,0 +1,11 @@
+node_modules
+.git
+.gitignore
+.DS_Store
+data
+dist
+tests
+deploy
+*.log
+*-result.json
+wrangler.toml
