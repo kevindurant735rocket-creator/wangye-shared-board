@@ -4,3 +4,4 @@ dist/
 .env.local
 data/notes.json
 .DS_Store
+data/sessions.json
