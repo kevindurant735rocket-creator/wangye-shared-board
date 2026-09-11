@@ -5,3 +5,5 @@ dist/
 data/notes.json
 .DS_Store
 data/sessions.json
+tests/*.png
+tests/*-result.json
