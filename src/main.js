@@ -124,6 +124,12 @@ async function saveNotes() {
     });
     if (!response.ok) {
       const body = await response.text().catch(() => "");
+      if (response.status === 401) {
+        // 未登录：跳转登录页（cookie 失效或被清）
+        log("warn", "401 on save, redirect to login");
+        window.location.href = "/";
+        return;
+      }
       throw new Error(`save failed ${response.status} ${body.slice(0, 200)}`);
     }
     const data = await response.json();

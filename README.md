@@ -41,6 +41,51 @@
 - SEO：`title/description/canonical/OG/Twitter/JSON-LD WebApplication/robots.txt/sitemap.xml/theme-color/manifest`，`skip-link` 与 `aria-live`
 - 无障碍：`label sr-only`、`aria-describedby`、`:focus-visible`
 
+## 登录页 + 验证码（v1.2 冒烟）
+
+- 入口：未登录访问 `/` 自动送 `public/login.html`
+- 演示账号：`demo / demo1234`（未设置 `AUTH_USERS` 环境变量时的默认账户）
+- 自定义账户：
+  ```bash
+  AUTH_USERS="alice:secret1,bob:secret2" npm start
+  ```
+- 接口：
+  | Method | Path | 说明 |
+  |---|---|---|
+  | GET | `/api/auth/captcha` | 取 SVG 验证码，响应头 `X-Token` |
+  | POST | `/api/auth/login` | `{username,password,captchaToken,captchaCode}` → 200 + `Set-Cookie: sid=…` |
+  | POST | `/api/auth/logout` | 清 cookie + 删 session |
+  | GET | `/api/auth/me` | 当前登录态 |
+  | POST | `/api/notes` | **需登录**（401 `needLogin:true` 触发跳登录） |
+- 详见 `lib/README.md`
+
+### 验证方式
+
+1. **单元/自检脚本**（12 用例，覆盖 captcha 一次性/TTL/大小写、auth 会话生命周期、防枚举时延）
+   ```bash
+   npm test
+   ```
+2. **端到端 curl 烟测**
+   ```bash
+   # 1. 启动
+   PORT=3030 npm start &
+   # 2. 取验证码
+   curl -s -D /tmp/h -o /tmp/c.svg http://localhost:3030/api/auth/captcha
+   TOKEN=$(awk -F': ' 'tolower($1)=="x-token"{print $2}' /tmp/h | tr -d '\r\n')
+   CODE=$(grep -oE '<text[^>]*>[A-Z0-9]+</text>' /tmp/c.svg | sed -E 's|<text[^>]*>([A-Z0-9]+)</text>|\1|' | tr -d '\n')
+   # 3. 登录
+   curl -s -c /tmp/c.jar -X POST http://localhost:3030/api/auth/login \
+     -H 'Content-Type: application/json' \
+     -d "{\"username\":\"demo\",\"password\":\"demo1234\",\"captchaToken\":\"$TOKEN\",\"captchaCode\":\"$CODE\"}"
+   # 4. 已登录访问
+   curl -s -b /tmp/c.jar http://localhost:3030/api/auth/me
+   curl -s -b /tmp/c.jar -X POST http://localhost:3030/api/notes \
+     -H 'Content-Type: application/json' -d '{"text":"hi"}'
+   # 5. 登出
+   curl -s -b /tmp/c.jar -X POST http://localhost:3030/api/auth/logout
+   ```
+3. **浏览器自检**：打开 `http://localhost:3030/` → 自动跳登录页 → 输入 `demo/demo1234` + 验证码 → 跳回主页并能保存笔记
+
 ## API 兼容
 
 - `GET /api/notes` → `{ text, updatedAt }`
@@ -54,8 +99,10 @@
   vite.config.js
   src/main.js
   src/styles.css
-  public/ (robots.txt, sitemap.xml, manifest, 旧 index.html 保留)
+  public/ (robots.txt, sitemap.xml, manifest, login.html/css/js)
   dist/ (build 产物)
-  server.js (安全/性能/可观测性增强)
+  server.js (安全/性能/可观测性/登录鉴权)
+  lib/ (auth.js 鉴权 + captcha.js 图形验证码)
+  tests/auth.test.js (npm test 自检脚本)
   data/notes.json
 ```

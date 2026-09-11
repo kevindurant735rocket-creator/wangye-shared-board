@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-Content-Type-Compatible" content="IE=edge" />
+    <title>登录 - 共享写字板</title>
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#2f7d57" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/login.css" />
+  </head>
+  <body class="login-body">
+    <main class="login-card" role="main">
+      <header class="login-header">
+        <h1>共享写字板</h1>
+        <p class="muted">登录后即可保存与同步你的笔记</p>
+      </header>
+
+      <form id="loginForm" class="login-form" autocomplete="on" novalidate>
+        <div class="field">
+          <label for="username">用户名</label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            required
+            minlength="1"
+            maxlength="64"
+            autocomplete="username"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="demo"
+          />
+        </div>
+
+        <div class="field">
+          <label for="password">密码</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            minlength="4"
+            maxlength="256"
+            autocomplete="current-password"
+            placeholder="demo1234"
+          />
+        </div>
+
+        <div class="field captcha-field">
+          <label for="captchaCode">验证码</label>
+          <div class="captcha-row">
+            <input
+              id="captchaCode"
+              name="captchaCode"
+              type="text"
+              required
+              minlength="4"
+              maxlength="8"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="输入右侧 4 位"
+              aria-describedby="captchaHelp"
+            />
+            <button
+              type="button"
+              id="refreshCaptcha"
+              class="captcha-box"
+              aria-label="点击刷新验证码"
+              title="点击刷新"
+            >
+              <span class="captcha-loading">加载中…</span>
+            </button>
+          </div>
+          <small id="captchaHelp" class="hint">不区分大小写，5 分钟内有效</small>
+        </div>
+
+        <button id="submitBtn" type="submit" class="primary">登录</button>
+
+        <div id="errorMsg" class="error" role="alert" aria-live="assertive" hidden></div>
+      </form>
+
+      <footer class="login-footer">
+        <span class="muted">演示账号：demo / demo1234</span>
+      </footer>
+    </main>
+
+    <script src="/login.js" defer></script>
+  </body>
+</html>
