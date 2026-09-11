@@ -53,6 +53,10 @@ async function saveNotes() {
       body: JSON.stringify({ text: board.value })
     });
     const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.error || ("保存失败 (" + response.status + ")"), true);
+      return;
+    }
     lastUpdatedAt = data.updatedAt;
     savedTimeEl.textContent = formatSavedTime(lastUpdatedAt);
     setStatus("已保存");

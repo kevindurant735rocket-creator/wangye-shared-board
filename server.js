@@ -210,7 +210,7 @@ function serveStatic(req, res) {
     return sendJson(res, 200, {
       ok: true,
       uptime: process.uptime(),
-      version: '1.2.0',
+      version: '1.3.0',
       staticRoot: path.basename(getStaticRoot()),
       authUsers: auth.userCount(),
     });

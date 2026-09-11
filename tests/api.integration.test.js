@@ -92,7 +92,7 @@ async function runTests() {
     const d = JSON.parse(r.body);
     assert.strictEqual(d.ok, true);
     assert.ok(typeof d.uptime === 'number');
-    assert.strictEqual(d.version, '1.2.0');
+    assert.strictEqual(d.version, '1.3.0');
   });
 
   console.log('\n--- Captcha API ---');
