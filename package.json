@@ -14,7 +14,8 @@
     "serve:dist": "NODE_ENV=production node server.js",
     "test": "node tests/auth.test.js && node tests/session-persistence.test.js && node tests/refactor.test.js && node tests/api.integration.test.js",
     "lint": "echo \"(add eslint when needed) lint:src\"",
-    "format": "prettier --write \"src/**/*.{js,css}\" \"*.{js,json}\" 2>/dev/null || echo \"prettier not installed\""
+    "format": "prettier --write \"src/**/*.{js,css}\" \"*.{js,json}\" 2>/dev/null || echo \"prettier not installed\"",
+    "bench": "node tests/benchmark.js"
   },
   "config": {
     "previewPort": 4173

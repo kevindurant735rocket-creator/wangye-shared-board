@@ -81,26 +81,53 @@ async function concurrent(paths, n, c) {
   };
 }
 
+const { spawn } = require('child_process');
+
+// 自起自停：无外部 server 时自起一个（BENCHMARK_MODE=1 跳过限流，否则 captcha 压测段全 429 无意义）
+async function ensureServer() {
+  const alive = await req('/health').then(() => true).catch(() => false);
+  if (alive) return null; // 外部已起，按旧用法直连
+  const child = spawn(process.execPath, ['server.js'], {
+    env: { ...process.env, PORT: String(PORT), AUTH_USERS: 'demo:demo1234', BENCHMARK_MODE: '1' },
+    stdio: 'ignore',
+    cwd: path.join(__dirname, '..'),
+  });
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    const ok = await req('/health').then(() => true).catch(() => false);
+    if (ok) return child;
+  }
+  child.kill();
+  throw new Error(`自起 server 失败（:PORT ${PORT}）`);
+}
+
 async function main() {
-  console.log(`Benchmark: target http://${HOST}:${PORT}, N=${N}, C=${CONCURRENCY}`);
-  console.log('--- A. GET /health (静态最便宜) ---');
-  const a = await concurrent(['/health'], N, CONCURRENCY);
-  console.log(JSON.stringify(a, null, 2));
-  console.log('\n--- B. GET /api/auth/captcha (含 SVG + crypto) ---');
-  const b = await concurrent(['/api/auth/captcha'], Math.floor(N / 2), CONCURRENCY);
-  console.log(JSON.stringify(b, null, 2));
+  const child = await ensureServer();
+  try {
+    console.log(`Benchmark: target http://${HOST}:${PORT}, N=${N}, C=${CONCURRENCY}` + (child ? '（自起 server）' : '（外部 server）'));
+    console.log('--- A. GET /health (静态最便宜) ---');
+    const a = await concurrent(['/health'], N, CONCURRENCY);
+    console.log(JSON.stringify(a, null, 2));
+    console.log('\n--- B. GET /api/auth/captcha (含 SVG + crypto) ---');
+    const b = await concurrent(['/api/auth/captcha'], Math.floor(N / 2), CONCURRENCY);
+    console.log(JSON.stringify(b, null, 2));
 
-  // 服务端聚合
-  console.log('\n--- C. 服务端聚合 /api/metrics ---');
-  const c = await req('/api/metrics');
-  let server = null;
-  try { server = JSON.parse(c.body); } catch {}
-  if (server) console.log(JSON.stringify(server, null, 2));
+    // 服务端聚合
+    console.log('\n--- C. 服务端聚合 /api/metrics ---');
+    const c = await req('/api/metrics');
+    let server = null;
+    try { server = JSON.parse(c.body); } catch {}
+    if (server) console.log(JSON.stringify(server, null, 2));
 
-  const out = { health: a, captcha: b, serverMetrics: server, ts: new Date().toISOString() };
-  const outPath = path.join(__dirname, 'benchmark-result.json');
-  fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
-  console.log('\n报告已落盘: ' + outPath);
+    const out = { health: a, captcha: b, serverMetrics: server, ts: new Date().toISOString() };
+    const outPath = path.join(__dirname, 'benchmark-result.json');
+    fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
+    console.log('\n报告已落盘: ' + outPath);
+    // 诚实退出码：A 段全军覆没=测不到任何东西
+    if (a.okCount === 0) { console.error('基准失败：A 段 0 成功'); process.exitCode = 1; }
+  } finally {
+    if (child) child.kill();
+  }
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

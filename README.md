@@ -11,14 +11,22 @@
   npm run build    # 产出 dist/
   npm run preview  # 预览 dist
   npm start        # 生产服务 node server.js（优先托管 dist，缺失则回退 public）
+  npm test         # 四套件：auth 12 + session-persistence 6 + refactor 16 + api.integration 15
+  npm run bench    # HTTP 基准（自起 server 于 :3456，N=200 C=20）
   ```
 - **Node >=18**，`package.json` 声明 `engines` 与 `type: commonjs` 保持兼容。
+
+## 认证与会话 (v1.3)
+
+- 登录页 `public/login.html`：SVG 图形验证码（一次性 token，5min TTL）+ 本地账号（`AUTH_USERS` 环境变量覆盖，格式 `user:pass[,user2:pass2]`，默认 `demo:demo1234`）
+- 会话：`sid` cookie（HttpOnly + SameSite=Lax），服务端 Map 存储；**重启不丢**——落盘 `data/sessions.json`（唯一 tmp 原子写 + 0600 权限 + 启动加载 + 过期即弃），`SESSIONS_FILE` 可覆盖路径；该文件含 token，已 gitignore
+- 限流：`/api/auth/*` 独立桶 `10 次/分钟`，防验证码/登录爆破
 
 ## 安全性 (server.js)
 
 - 安全头：`X-Content-Type-Options / X-Frame-Options / Referrer-Policy / HSTS / CSP / Permissions-Policy`（轻量 helmet）
 - CORS：`CORS_ORIGIN` 环境变量控制，默认 `*`，处理 `OPTIONS` 预检
-- 限流：内存滑动窗口 `GET 120/分钟 / POST 30/分钟`，超限 `429`
+- 限流：内存**固定窗口**（窗口边界处理论可 2× 突发）`GET 120/分钟 / POST 30/分钟`，超限 `429`
 - 参数校验：`POST /api/notes` 校验 JSON 合法性、`text` 类型与 20000 长度，`413` 超大体
 - 原子写入：临时文件 + `rename`，避免并发截断
 - 体积限制：`128KB` 请求体上限
