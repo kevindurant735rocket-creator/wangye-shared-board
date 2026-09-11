@@ -19,3 +19,4 @@
 
 ## AC 历史
 - 2026-09-11: npm test 48/48 全绿（12+5+16+15），server / /login.html /health HTTP 200；v1.3 登录+模块化入库（36fed9e），会话持久化+密闭化（41fa891）
+- 2026-09-11 下午: 红队审查——_persistSessions 固定 .tmp 并发竞态+0o644 过宽 → 唯一 tmp+0o600+fsync，回归测试第 6 例；npm test 49/49（12+6+16+15）

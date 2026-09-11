@@ -82,5 +82,23 @@ test('损坏文件不致命（视为无历史会话）', () => {
   assert.strictEqual(auth.verifySession(token), 'u-after-corrupt');
 });
 
+test('并发双写不竞态：文件落盘后权限 0600 且 JSON 完整', () => {
+  const f = path.join(dir, 'concurrent.json');
+  const auth = freshAuth(f);
+  // 连续两个会话各触发一次持久化；唯一 tmp 名下任何时刻磁盘上都是完整 JSON
+  auth.startSession('u-c1');
+  auth.startSession('u-c2');
+  auth._persistSessions();
+  auth._persistSessions(); // 第二次立即写：固定 tmp 名会在此互踩
+  const st = fs.statSync(f);
+  assert.strictEqual(st.mode & 0o777, 0o600, 'sessions 文件应为 0600');
+  const parsed = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.strictEqual(parsed.version, 1);
+  assert.ok(Object.keys(parsed.sessions).length >= 2);
+  // 无 tmp 残留
+  const residue = fs.readdirSync(dir).filter((n) => n.includes('.tmp.'));
+  assert.deepStrictEqual(residue, []);
+});
+
 console.log(`\n=== 结果: ${passed} passed, ${failed} failed ===`);
 process.exit(failed ? 1 : 0);
